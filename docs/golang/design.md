@@ -16,11 +16,11 @@ Go groups related types in a package.  In Go, the package should be named `az<se
 
 {% include requirement/MUST id="golang-namespace-prefix" %} start the package with `az` to indicate an Azure client library.
 
-{% include requirement/MUST id="golang-namespace-pkgname" %} construct the package name with all lowercase letters (uppercase letters, hyphens and underscores are not allowed). For example, the Azure Key Vault package would be named `azkeyvault` and the Azure Storage Blob package would be named `azblob`.
+{% include requirement/MUST id="golang-namespace-pkgname" %} construct the package name with all lowercase letters (uppercase letters, hyphens and underscores are not allowed). For example, the Azure Key Vault package would be named `azkeyvault` and the Azure Blob package would be named `azblob`.
 
 {% include requirement/MUST id="golang-namespace-registration" %} register the chosen package name with the [Architecture Board]. Open an issue to request the package name. See the [registered namespace list](registered_namespaces.html) for a list of the currently registered namespaces.
 
-## Package path
+## Package path - TODO update wiht latest changes
 
 {% include requirement/MUST id="golang-pkgpath-construction" %} construct a package import path that allows the consumer to tie its packages to the service being used. The package path does **NOT** change when the branding of the product changes. Avoid the use of marketing names that may change.
 
@@ -44,27 +44,27 @@ type WidgetClient struct {
 }
 ```
 
-{% include requirement/MUST id="golang-client-constructors" %} provide constructors in the following format that returns a new instance of a service client type.
+{% include requirement/MUST id="golang-client-constructors" %} provide two constructors in the following format that return a new instance of a service client type.
 
 ```go
 // NewWidgetClient creates a new instance of WidgetClient with the specified values.  It uses the default pipeline configuration.
-func NewWidgetClient(endpoint string, cred azcore.Credential, options WidgetClientOptions) (*WidgetClient, error) {
+TODO - spell out each parameter in its own comment line
+func NewWidgetClient(ctx context.Context, endpoint string, cred azcore.Credential, options *WidgetClientOptions) (*WidgetClient, error) {
 	// ...
 }
 
 // NewWidgetClientWithPipeline creates a new instance of WidgetClient with the specified values and custom pipeline.
-func NewWidgetClientWithPipeline(endpoint string, p azcore.Pipeline, options WidgetClientOptions) (*WidgetClient, error) {
+TODO - also fix
+func NewWidgetClientWithPipeline(ctx context.Context, endpoint string, p azcore.Pipeline) (*WidgetClient, error) {
 	// ...
 }
 ```
 
-{% include requirement/MUST id="golang-api-service-client-immutable" %} ensure that all service client types are immutable upon instantiation.
+{% include requirement/MUST id="golang-api-service-client-immutable" %} ensure that all service client types are safe for concurrent use by multiple goroutines.
 
-{% include requirement/MUST id="golang-api-service-client-byref" %} pass all client instances by reference.  All methods on client types will pass their receiver by reference.
+{% include requirement/MUST id="golang-api-service-client-byref" %} ensure that all methods on client types pass their receiver by reference.  NOTE: any methods that accept a client must pass it by reference.
 
-{% include requirement/MUSTNOT id="golang-api-service-client-fields" %} export any fields on client types.  This is to support mocking of clients via interface types and strengthens the immutability requirement.
-
-## Service client methods
+{% include requirement/MUSTNOT id="golang-api-service-client-fields" %} export any fields on client types.  This is to support mocking of clients via interface types.
 
 {% include requirement/MUST id="golang-client-crud-verbs" %} prefer the use of the following terms for CRUD operations:
 
@@ -72,19 +72,12 @@ func NewWidgetClientWithPipeline(endpoint string, p azcore.Pipeline, options Wid
 | `Set<noun>`    | key,item   | Adds new item or updates existing item. |
 | `Add<noun>`    | key,item   | Adds a new item.  Fails if item already exists. |
 | `Update<noun>` | key,item   | Updates an existing item.  Fails if item doesn't exist. |
-| `Delete<noun>` | key        | Deletes an existing item. |
+| `Delete<noun>` | key        | Deletes an existing item. Doesn't fail if item doesn't exist. |
 | `Get<noun>`    | key        | Will retun an error if item doesn't exist. |
-| `List<noun>`   |            | Return list of items.  Returns empty list if no items exist. |
-| `<noun>Exists` | key        | Return `true` if the item exists. |
+| `List<noun>`   |            | Returns list of items.  Returns empty list if no items exist. |
+| `<noun>Exists` | key        | Returns `true` if the item exists. |
 
 {% include requirement/SHOULD id="golang-client-verbs-flexible" %} remain flexible and use names best suited for developer experience. Don’t conflict with terminology used by the service team’s documentation, blogs, and presentations.
-
-{% include requirement/MUST id="golang-feature-support" %} support 100% of the features provided by the Azure service the client library represents. Gaps in functionality cause confusion and frustration among developers.
-
-{% include requirement/MUSTNOT id="golang-noimplleakage" %} allow implementation code (that is, code that doesn’t form part of the public API) to be mistaken as public API. There are two valid arrangements for implementation code:
-
-1.	Implementation types and functions should not be exported and placed within the same package.
-2.	Implementation types and functions can be placed in an [internal package](https://docs.google.com/document/d/1e8kOo3r51b2BWtTs_1uADIA5djfXhPT36s6eHVRIvaU/edit).
 
 ## Authentication
 
@@ -94,9 +87,17 @@ Azure services use different kinds of authentication schemes to allow clients to
 
 {% include requirement/MUST id="golang-auth-use-azidentity" %} use credential and authentication policy implementations from the `azcore` or `azidentity` package where available.
 
-{% include requirement/MUST id="golang-auth-concurrency" %} provide credential types that can be used to fetch all data needed to authenticate a request to the service. If using a service-specific credential type, the implementation must be safe for concurrent use and atomic.
+{% include requirement/MUST id="golang-auth-concurrency" %} provide credential types that can be used to fetch all data needed to authenticate a request to the service. If using a service-specific credential type, the implementation must be safe for concurrent use.
 
-{% include requirement/MUSTNOT id="golang-auth-connection-strings" %} support constructing a service client with a connection string unless such connection string is available within tooling (for copy/paste operations). A connection string is a combination of an endpoint, credential data, and other options used to simplify service client configuration. Client libraries may support a connection string **ONLY IF** the service provides it via the portal or other tooling. Connection strings are easily integrated into an application by copy/paste from the portal. However, credentials within a connection string can’t be rotated within a running process. Their use should be discouraged in production apps.
+{% include requirement/MUSTNOT id="golang-auth-connection-strings" %} support constructing a service client with a connection string unless such connection string is available within tooling (e.g. Azure portal, for copy/paste operations). A connection string is a combination of an endpoint, credential data, and other options used to simplify service client configuration. Connection strings are easily integrated into an application by copy/paste from the portal. However, credentials within a connection string can’t be rotated within a running process. Their use should be discouraged in production apps.  If the client library supports connection strings, the constructor should look like this:
+
+```go
+// NewWidgetClientFromConnectionString creates a new instance of WidgetClient with the specified values.  It uses the default pipeline configuration.
+TODO - spell out each parameter in its own comment line
+func NewWidgetClientFromConnectionString(ctx context.Context, con string, options *WidgetClientOptions) (*WidgetClient, error) {
+	// ...
+}
+```
 
 ## Response formats
 
@@ -390,19 +391,9 @@ func WidgetColorValues() []WidgetColor {
 
 ### Versioning
 
-Each new package defaults to the latest known service version.
-
-Each package allows the consumer to select a previous service version from a list of enum values provided in that package.
-
 {% include requirement/MUST id="golang-versioning-modules" %} release each package as a [Go module](https://blog.golang.org/using-go-modules).  Legacy dependency management tools such as `dep` and `glide` are not supported.
 
 {% include requirement/MUST id="golang-versioning-semver" %} release versions of modules in accordance with [semver 2.0](https://semver.org/spec/v2.0.0.html).
-
-{% include requirement/MUST id="golang-versioning-breaking-changes" %} release a new major version of a module when breaking changes are introduced in public surface area; this includes new service versions that are NOT backward-compatible.  Use a new major version subdirectory to support [semantic import versioning](https://github.com/golang/go/wiki/Modules#semantic-import-versioning).
-
-{% include requirement/MUST id="golang-versioning-minor-versions" %} release a new minor version of a module when new public surface area is introduced; this includes new service versions that are backward-compatible with the previous versions.
-
-{% include requirement/MUST id="golang-versioning-patch-versions" %} release a new patch version of a module when changes are made that do not affect public surface area.
 
 {% include requirement/MUST id="golang-versioning-preview" %} clearly version prerelease modules.  For new modules, use a v0 major version with no suffix (v0.1.0).  For existing modules, use a `-preview` suffix (v1.1.0-preview, v2.0.0-preview).
 
